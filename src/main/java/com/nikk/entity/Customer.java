@@ -6,6 +6,7 @@ import jakarta.persistence.Id;
 
 @Entity
 public class Customer {
+
     @Id
     private Long customerId;
 
@@ -15,26 +16,18 @@ public class Customer {
     @Column(name = "last_name", nullable = false)
     private String lastname;
 
-    @Column(name = "email", nullable = false, unique = true)
+    @Column(nullable = false, unique = true)
     private String email;
 
-    @Column(name = "city")
     private String city;
-
-    @Column(name = "state")
     private String state;
-
-    @Column(name = "country")
     private String country;
-
-    @Column(name = "zipcode")
     private String zipcode;
 
-    // 🔹 No-args constructor (required by JPA)
+    // Required by JPA.
     public Customer() {
     }
 
-    // 🔹 All-args constructor
     public Customer(Long customerId, String firstname, String lastname, String email,
                     String city, String state, String country, String zipcode) {
         this.customerId = customerId;
@@ -46,8 +39,6 @@ public class Customer {
         this.country = country;
         this.zipcode = zipcode;
     }
-
-    // 🔹 Getters and Setters
 
     public Long getCustomerId() {
         return customerId;
@@ -115,10 +106,15 @@ public class Customer {
 
     @Override
     public String toString() {
-        return "Customer [customerId=" + customerId + ", firstname=" + firstname + ", lastname=" + lastname + ", email="
-                + email + ", city=" + city + ", state=" + state + ", country=" + country + ", zipcode=" + zipcode + "]";
+        return "Customer{" +
+                "customerId=" + customerId +
+                ", firstname='" + firstname + '\'' +
+                ", lastname='" + lastname + '\'' +
+                ", email='" + email + '\'' +
+                ", city='" + city + '\'' +
+                ", state='" + state + '\'' +
+                ", country='" + country + '\'' +
+                ", zipcode='" + zipcode + '\'' +
+                '}';
     }
-
-
-
 }

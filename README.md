@@ -1,126 +1,119 @@
 # ETLForge
 
-ETLForge is a Spring Boot application that imports customer data from a CSV file into a relational database using Spring Batch.
+ETLForge is a configurable, fault-tolerant customer ingestion service built with Java 21, Spring Boot, Spring Batch, Spring Data JPA, and MySQL. It reads CSV data through a chunk-oriented pipeline, validates and normalizes customer records, persists valid data, and reports execution metrics through a REST API.
 
-The project reads `customers_1000.csv`, maps each row to a `Customer` entity, and saves the data through Spring Data JPA.
+## Highlights
 
-## Tech Stack
+- Configurable chunk size through `ETL_CHUNK_SIZE` (default: `100`)
+- CSV validation and normalization before persistence
+- Skip handling for invalid or duplicate records
+- Retry handling for transient database lock failures
+- REST endpoints to launch imports and inspect execution statistics
+- Environment-based database credentials
+- H2-backed automated tests and GitHub Actions CI
+- Docker Compose setup for local MySQL
 
-- Java 21
-- Spring Boot
-- Spring Batch
-- Spring Data JPA
-- MySQL
-- Maven
-
-## Project Structure
+## Processing flow
 
 ```text
-src/main/java/com/nikk
-├── config
-│   ├── BatchConfig.java
-│   └── CustomerProcessor.java
-├── controller
-│   └── CustomerController.java
-├── entity
-│   └── Customer.java
-├── repo
-│   └── ICustomerRepo.java
-└── EtlForgeApplication.java
-
-src/main/resources
-├── application.properties
-└── customers_1000.csv
+CSV file -> FlatFileItemReader -> CustomerProcessor -> JPA repository -> MySQL
+                                     |
+                                     `-> validation / normalization / skipped-row metrics
 ```
 
-## Features
+The chunk size is runtime-configurable, so the application can be tuned for different file sizes and database capacity without rebuilding it.
 
-- Reads customer records from a CSV file
-- Uses Spring Batch reader, processor, and writer flow
-- Saves customer data into a database
-- Provides an HTTP endpoint to start the import job
+## Run locally
 
-## CSV Format
+Requirements: Java 21 and Docker.
 
-The CSV file should contain these columns:
-
-```csv
-customerId,firstname,lastname,email,city,state,country,zipcode
-```
-
-Example:
-
-```csv
-1,Riya,Reddy,riya.reddy1@example.com,Mumbai,MH,India,656538
-```
-
-## Database Configuration
-
-Update `src/main/resources/application.properties` with your database details:
-
-```properties
-spring.datasource.url=jdbc:mysql://localhost:3306/etldb
-spring.datasource.username=root
-spring.datasource.password=1234
-
-spring.jpa.hibernate.ddl-auto=update
-spring.jpa.show-sql=true
-```
-
-Create the database before running the application:
-
-```sql
-CREATE DATABASE etldb;
-```
-
-## How to Run
-
-From the project root, run:
+Start MySQL:
 
 ```bash
-./mvnw spring-boot:run
+docker compose up -d
 ```
 
-On Windows PowerShell:
+Set the database credentials used by `compose.yaml` and start the application.
+
+PowerShell:
 
 ```powershell
+$env:DB_USERNAME="etlforge"
+$env:DB_PASSWORD="etlforge"
+$env:ETL_CHUNK_SIZE="100"
 .\mvnw.cmd spring-boot:run
 ```
 
-The application starts on:
+Bash:
 
-```text
-http://localhost:8080
+```bash
+export DB_USERNAME=etlforge
+export DB_PASSWORD=etlforge
+export ETL_CHUNK_SIZE=100
+./mvnw spring-boot:run
 ```
 
-## Import Data
+Additional configuration options are documented in `.env.example`.
 
-Start the customer import job by opening this endpoint:
+## API
 
-```text
-GET http://localhost:8080/import
+Launch an import:
+
+```http
+POST /api/v1/imports
 ```
 
-Successful response:
+Example response:
 
-```text
-Data Loaded
+```json
+{
+  "executionId": 1,
+  "status": "COMPLETED",
+  "recordsRead": 1000,
+  "recordsWritten": 1000,
+  "recordsSkipped": 0,
+  "startedAt": "2026-08-31T20:15:10",
+  "completedAt": "2026-08-31T20:15:11"
+}
 ```
 
-## Run Tests
+Retrieve the persisted state of an execution:
+
+```http
+GET /api/v1/imports/{executionId}
+```
+
+## Input format
+
+The configured CSV resource must contain a header followed by these columns:
+
+```csv
+customerId,firstname,lastname,email,city,state,country,zipcode
+1,Riya,Reddy,riya.reddy1@example.com,Mumbai,MH,India,656538
+```
+
+`customerId`, `firstname`, `lastname`, and a valid `email` are required. Text values are trimmed and email addresses are normalized to lowercase.
+
+## Tests
+
+Tests use an isolated in-memory H2 database, so a local MySQL instance is not required:
 
 ```bash
 ./mvnw test
 ```
 
-On Windows PowerShell:
+The suite covers application startup as well as processor validation and normalization. CI runs the complete Maven verification lifecycle on every push and pull request.
 
-```powershell
-.\mvnw.cmd test
-```
+## Tech stack
 
-## Notes
+- Java 21
+- Spring Boot 4
+- Spring Batch 6
+- Spring Data JPA
+- MySQL 8
+- H2 (tests)
+- Maven and GitHub Actions
 
-- Build output is generated in the `target/` folder and should not be committed.
-- The default CSV file is located at `src/main/resources/customers_1000.csv`.
-- The batch job currently processes records without changing them in `CustomerProcessor`.
+## Suggested resume description
+
+> Built a configurable, fault-tolerant ETL pipeline with Java, Spring Batch, JPA, and MySQL that validates and imports customer data using chunk-oriented processing, retry/skip policies, REST-based job monitoring, and automated integration tests.

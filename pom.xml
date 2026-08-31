@@ -9,10 +9,10 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.nikk</groupId>
-	<artifactId>ETLForge </artifactId>
+		<artifactId>etlforge</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name/>
-	<description/>
+		<name>ETLForge</name>
+		<description>Configurable, fault-tolerant customer data ingestion with Spring Batch</description>
 	<url/>
 	<licenses>
 		<license/>
@@ -55,9 +55,9 @@
 			<scope>runtime</scope>
 		</dependency>
 		<dependency>
-			<groupId>org.postgresql</groupId>
-			<artifactId>postgresql</artifactId>
-			<scope>runtime</scope>
+			<groupId>com.h2database</groupId>
+			<artifactId>h2</artifactId>
+			<scope>test</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

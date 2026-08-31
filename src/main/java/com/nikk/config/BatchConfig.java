@@ -15,31 +15,47 @@ import org.springframework.batch.infrastructure.item.file.builder.FlatFileItemRe
 import org.springframework.batch.infrastructure.item.file.mapping.BeanWrapperFieldSetMapper;
 import org.springframework.batch.infrastructure.item.file.mapping.DefaultLineMapper;
 import org.springframework.batch.infrastructure.item.file.transform.DelimitedLineTokenizer;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
+import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.PlatformTransactionManager;
 
 @Configuration
 public class BatchConfig {
 
-    @Autowired
-    private ICustomerRepo repo;
+    private final ICustomerRepo repo;
+    private final JobRepository jobRepository;
+    private final Resource inputResource;
+    private final int chunkSize;
+    private final long skipLimit;
+    private final long retryLimit;
 
-    @Autowired
-    private JobRepository jobRepo;
+    public BatchConfig(ICustomerRepo repo,
+                       JobRepository jobRepository,
+                       @Value("${etl.input-resource}") Resource inputResource,
+                       @Value("${etl.chunk-size}") int chunkSize,
+                       @Value("${etl.skip-limit}") long skipLimit,
+                       @Value("${etl.retry-limit}") long retryLimit) {
+        this.repo = repo;
+        this.jobRepository = jobRepository;
+        this.inputResource = inputResource;
+        this.chunkSize = chunkSize;
+        this.skipLimit = skipLimit;
+        this.retryLimit = retryLimit;
+    }
 
     // Item Reader
     @Bean
     public FlatFileItemReader<Customer> reader() {
-        FlatFileItemReader<Customer> reader= new FlatFileItemReaderBuilder<Customer>()
+        return new FlatFileItemReaderBuilder<Customer>()
                 .name("customerCsvReader")
-                .resource(new ClassPathResource("customers_1000.csv"))
+                .resource(inputResource)
                 .linesToSkip(1)
                 .lineMapper(lineMapper())
                 .build();
-        return reader;
 
     }
 
@@ -77,20 +93,30 @@ public class BatchConfig {
                      CustomerProcessor processor,
                      RepositoryItemWriter<Customer> writer,
                      PlatformTransactionManager transactionManager) {
+        if (chunkSize <= 0) {
+            throw new IllegalArgumentException("etl.chunk-size must be greater than zero");
+        }
+
         ChunkOrientedStepBuilder<Customer, Customer> stepBuilder =
-                new StepBuilder("step-1", jobRepo).<Customer, Customer>chunk(10);
+                new StepBuilder("customer-import-step", jobRepository)
+                        .<Customer, Customer>chunk(chunkSize);
 
         return stepBuilder
                 .transactionManager(transactionManager)
                 .reader(reader)
                 .processor(processor)
                 .writer(writer)
+                .faultTolerant()
+                .skip(CustomerValidationException.class, DataIntegrityViolationException.class)
+                .skipLimit(skipLimit)
+                .retry(CannotAcquireLockException.class)
+                .retryLimit(retryLimit)
                 .build();
     }
 
     @Bean
     public Job job(Step step) {
-        return new JobBuilder("customer-import", jobRepo)
+        return new JobBuilder("customer-import", jobRepository)
                 .start(step)
                 .build();
     }
